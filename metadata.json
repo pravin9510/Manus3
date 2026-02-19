@@ -1,0 +1,9 @@
+{
+  "name": "Manus Mobile AI",
+  "description": "Premium native-feel mobile interface for autonomous agents.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
