@@ -1,20 +1,20 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import Header from './components/Header';
-import CategoryTabs from './components/CategoryTabs';
-import ProjectItem from './components/ProjectItem';
-import FloatingButton from './components/FloatingButton';
-import ChatPage from './components/ChatPage';
-import SettingsMenu from './components/SettingsMenu';
-import SkillsModal from './components/SkillsModal';
-import ConnectorsModal from './components/ConnectorsModal';
-import SubscriptionModal from './components/SubscriptionModal';
-import AgentManagerModal from './components/AgentManagerModal';
-import ApkBuildModal from './components/ApkBuildModal';
-import PublishModal from './components/PublishModal';
-import WebsitePreview from './components/WebsitePreview';
-import MobileAppPreview from './components/MobileAppPreview';
-import GamePreview from './components/GamePreview';
+import Header from './Header';
+import CategoryTabs from './CategoryTabs';
+import ProjectItem from './ProjectItem';
+import FloatingButton from './FloatingButton';
+import ChatPage from './ChatPage';
+import SettingsMenu from './SettingsMenu';
+import SkillsModal from './SkillsModal';
+import ConnectorsModal from './ConnectorsModal';
+import SubscriptionModal from './SubscriptionModal';
+import AgentManagerModal from './AgentManagerModal';
+import ApkBuildModal from './ApkBuildModal';
+import PublishModal from './PublishModal';
+import WebsitePreview from './WebsitePreview';
+import MobileAppPreview from './MobileAppPreview';
+import GamePreview from './GamePreview';
 import { Sparkles, FolderOpen, Zap, User, Search, Bot, BrainCircuit, ArrowUp, Command } from 'lucide-react';
 import { Category, Project, CustomAgent } from './types';
 
