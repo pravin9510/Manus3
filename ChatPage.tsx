@@ -655,7 +655,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
       } else if (msg.includes('cors') || msg.includes('network') || msg.includes('failed to fetch') || msg.includes('load failed')) {
         setError('🌐 Network error. Internet connection check karo aur retry karo.');
       } else if (msg.includes('model') || msg.includes('not found') || msg.includes('404')) {
-        setError('🤖 AI model nahi mila. Gemini agent select karo aur retry karo.');
+        setError('🔑 API Key check karo — aistudio.google.com pe jaao, naya key banao, aur Agent settings mein update karo.');
       } else if (msg.includes('500') || msg.includes('502') || msg.includes('503')) {
         setError('🔧 AI server error. Thodi der baad retry karo.');
       } else if (msg) {
