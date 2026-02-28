@@ -145,7 +145,10 @@ async function callProviderAPI(
 
   // ── GEMINI (default) ────────────────────────────────────────────────────────
   if (provider === 'gemini' || !agent.apiKey) {
-    const geminiKey = agent.apiKey || process.env.API_KEY || '';
+    const geminiKey = agent.apiKey || process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+    if (!geminiKey) {
+      throw new Error('Gemini API key missing. Please add your API key in Agent settings or set GEMINI_API_KEY environment variable.');
+    }
     const ai = new GoogleGenAI({ apiKey: geminiKey });
 
     const contents: any[] = [
@@ -162,7 +165,7 @@ async function callProviderAPI(
     ];
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-1.5-flash',
       contents,
       config: {
         systemInstruction,
@@ -442,7 +445,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-1.5-flash',
         contents: `Improve this prompt for an autonomous AI agent:\n\n"${input}"\n\nReturn ONLY the refined prompt, no preamble.`,
         config: {
           systemInstruction: 'You are a world-class prompt engineering assistant. Rewrite user prompts to maximise AI agent performance.'
@@ -476,6 +479,9 @@ const ChatPage: React.FC<ChatPageProps> = ({
     };
 
     const currentFile = selectedFile;
+    // Store for retry access in catch block
+    (handleSendMessage as any)._lastInput = finalInput;
+    (handleSendMessage as any)._lastFile = currentFile;
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setSelectedFile(null);
@@ -594,17 +600,68 @@ const ChatPage: React.FC<ChatPageProps> = ({
       }
 
     } catch (err: any) {
-      console.error('API Error:', err);
-      // Show a meaningful error message
-      const msg = err?.message || '';
-      if (msg.includes('API key') || msg.includes('401') || msg.includes('403')) {
-        setError('Invalid or missing API key. Please check your agent settings.');
-      } else if (msg.includes('quota') || msg.includes('429')) {
-        setError('Rate limit reached. Please wait a moment and try again.');
-      } else if (msg.includes('network') || msg.includes('fetch')) {
-        setError('Network error. Please check your connection and try again.');
+      console.error('API Error (full):', err);
+      const msg = (err?.message || err?.toString() || '').toLowerCase();
+      
+      if (msg.includes('api key') || msg.includes('401') || msg.includes('403') || msg.includes('invalid') || msg.includes('unauthorized')) {
+        setError('❌ API Key invalid ya missing hai. Agent settings mein apni API key check karo.');
+      } else if (msg.includes('quota') || msg.includes('429') || msg.includes('rate limit') || msg.includes('resource_exhausted')) {
+        // Auto-retry after 30 seconds for rate limit
+        setError('⏳ Rate limit! 30 seconds mein automatic retry hogi...');
+        setTimeout(async () => {
+          setError(null);
+          setIsLoading(true);
+          setLoadingSteps([
+            { id: 'step-1', type: 'plan',   label: 'Analyzing Goal',           status: 'running' },
+            { id: 'step-2', type: 'search', label: 'Decomposing Tasks',        status: 'pending' },
+            { id: 'step-3', type: 'code',   label: 'Synthesizing Architecture',status: 'pending' },
+            { id: 'step-4', type: 'action', label: 'Finalizing Synthesis',     status: 'pending' }
+          ]);
+          try {
+            const retryResult = await callProviderAPI(selectedAgent, messages, finalInput, currentFile, selectedAgent.systemInstruction);
+            const aiMsg: ChatMessage = {
+              id: (Date.now() + 1).toString(),
+              role: 'model',
+              text: retryResult.text,
+              timestamp: new Date(),
+              agentId: selectedAgentId,
+              steps: []
+            };
+            const updatedMessages = [...messages, userMsg, aiMsg];
+            setMessages(updatedMessages);
+            if (project) {
+              onUpdateProject(project.id, { messages: updatedMessages });
+            } else {
+              onCreateProject({
+                id: Date.now().toString(),
+                title: userMsg.text.slice(0, 30),
+                description: aiMsg.text.slice(0, 100),
+                date: 'Today',
+                icon: 'web',
+                category: 'All',
+                status: 'completed',
+                messages: updatedMessages,
+                agentId: selectedAgentId
+              });
+            }
+          } catch (retryErr: any) {
+            setError('⏳ Rate limit abhi bhi active hai. Kuch minute baad try karo ya aistudio.google.com se naya API key banao.');
+          } finally {
+            setIsLoading(false);
+            setLoadingSteps([]);
+          }
+        }, 30000);
+        return; // Don't go to finally yet
+      } else if (msg.includes('cors') || msg.includes('network') || msg.includes('failed to fetch') || msg.includes('load failed')) {
+        setError('🌐 Network error. Internet connection check karo aur retry karo.');
+      } else if (msg.includes('model') || msg.includes('not found') || msg.includes('404')) {
+        setError('🤖 AI model nahi mila. Gemini agent select karo aur retry karo.');
+      } else if (msg.includes('500') || msg.includes('502') || msg.includes('503')) {
+        setError('🔧 AI server error. Thodi der baad retry karo.');
+      } else if (msg) {
+        setError(`⚠️ Error: ${err?.message || err?.toString()}`);
       } else {
-        setError(msg ? `Error: ${msg}` : 'Something went wrong. Please try again.');
+        setError('❌ Kuch galat hua. Dobara try karo.');
       }
     } finally {
       setIsLoading(false);
@@ -935,10 +992,20 @@ const ChatPage: React.FC<ChatPageProps> = ({
       {/* ── Error Banner ── */}
       {error && (
         <div className="px-5 py-2">
-          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-center space-x-3 text-red-500 text-xs animate-in slide-in-from-bottom-2">
-            <AlertTriangle size={14} />
-            <span className="flex-1">{error}</span>
-            <button onClick={() => setError(null)} className="opacity-40 hover:opacity-100"><X size={14} /></button>
+          <div className="bg-red-500/15 border border-red-500/30 rounded-2xl p-4 flex items-start space-x-3 text-red-400 animate-in slide-in-from-bottom-2">
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-[12px] font-bold leading-relaxed">{error}</p>
+              {(error.includes('API Key') || error.includes('API key') || error.includes('missing')) && (
+                <button 
+                  onClick={() => { setError(null); onOpenAgentManager?.(); }}
+                  className="mt-2 text-[10px] font-black uppercase tracking-widest bg-red-500/20 border border-red-500/30 px-3 py-1.5 rounded-lg hover:bg-red-500/30 transition-all"
+                >
+                  → Agent Settings Kholo
+                </button>
+              )}
+            </div>
+            <button onClick={() => setError(null)} className="opacity-40 hover:opacity-100 shrink-0"><X size={14} /></button>
           </div>
         </div>
       )}
