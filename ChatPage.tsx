@@ -141,11 +141,11 @@ async function callProviderAPI(
   functionCalls?: Array<{ name: string; args: any }>;
 }> {
   const provider = agent.provider || 'gemini';
-  const apiKey = agent.apiKey || process.env.API_KEY || '';
+  const apiKey = agent.apiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
 
   // ── GEMINI (default) ────────────────────────────────────────────────────────
   if (provider === 'gemini' || !agent.apiKey) {
-    const geminiKey = agent.apiKey || process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+    const geminiKey = agent.apiKey || import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || '';
     if (!geminiKey) {
       throw new Error('Gemini API key missing. Please add your API key in Agent settings or set GEMINI_API_KEY environment variable.');
     }
@@ -164,17 +164,22 @@ async function callProviderAPI(
       }
     ];
 
-    const response = await ai.models.generateContent({
+    const result = await ai.getGenerativeModel({ 
       model: 'gemini-1.5-flash',
-      contents,
-      config: {
-        systemInstruction,
-        tools: [{ functionDeclarations: toolDeclarations }]
-      }
-    });
+      systemInstruction,
+      tools: [{ functionDeclarations: toolDeclarations }]
+    }).generateContent({ contents });
 
-    const calls = response.functionCalls?.map(fc => ({ name: fc.name, args: fc.args as any }));
-    return { text: response.text || 'Synthesis complete.', functionCalls: calls };
+    const response = result.response;
+    const text = response.text() || 'Synthesis complete.';
+    const functionCalls = response.candidates?.[0]?.content?.parts
+      ?.filter(part => part.functionCall)
+      ?.map(part => ({
+        name: part.functionCall!.name,
+        args: part.functionCall!.args
+      }));
+
+    return { text, functionCalls };
   }
 
   // ── OPENAI ──────────────────────────────────────────────────────────────────
@@ -260,7 +265,7 @@ async function callProviderAPI(
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-5',
+        model: 'claude-3-5-sonnet-20240620',
         max_tokens: 8192,
         system: systemInstruction,
         messages: anthropicMessages,
@@ -357,18 +362,19 @@ async function generateLogoWithGemini(
   apiKey: string
 ): Promise<string | null> {
   try {
-    const ai = new GoogleGenAI({ apiKey: apiKey || process.env.API_KEY || '' });
-    const imageResponse = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-preview-image-generation',
-      contents: {
+    const ai = new GoogleGenAI({ apiKey: apiKey || import.meta.env.VITE_GEMINI_API_KEY || '' });
+    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const imageResponse = await model.generateContent({
+      contents: [{
+        role: "user",
         parts: [{
-          text: `Professional high-fidelity app logo. Subject: ${projectName}. Visual Style: ${visualPrompt}. Minimalist, 4K, premium vector style, clean background.`
+          text: `Generate a professional high-fidelity app logo. Subject: ${projectName}. Visual Style: ${visualPrompt}. Minimalist, 4K, premium vector style, clean background.`
         }]
-      },
-      config: { responseModalities: ['IMAGE', 'TEXT'] }
+      }]
     });
 
-    for (const part of imageResponse.candidates?.[0]?.content?.parts || []) {
+    const response = imageResponse.response;
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
       if ((part as any).inlineData) {
         return `data:image/png;base64,${(part as any).inlineData.data}`;
       }
@@ -443,15 +449,13 @@ const ChatPage: React.FC<ChatPageProps> = ({
     if (!input.trim() || isRefining || isLoading) return;
     setIsRefining(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-      const response = await ai.models.generateContent({
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
+      const model = ai.getGenerativeModel({ 
         model: 'gemini-1.5-flash',
-        contents: `Improve this prompt for an autonomous AI agent:\n\n"${input}"\n\nReturn ONLY the refined prompt, no preamble.`,
-        config: {
-          systemInstruction: 'You are a world-class prompt engineering assistant. Rewrite user prompts to maximise AI agent performance.'
-        }
+        systemInstruction: 'You are a world-class prompt engineering assistant. Rewrite user prompts to maximise AI agent performance.'
       });
-      const refined = response.text?.trim();
+      const result = await model.generateContent(`Improve this prompt for an autonomous AI agent:\n\n"${input}"\n\nReturn ONLY the refined prompt, no preamble.`);
+      const refined = result.response.text()?.trim();
       if (refined) setInput(refined);
     } catch (err) {
       console.error('Refinement failed', err);
@@ -499,7 +503,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
       // Call the correct provider API
       const result = await callProviderAPI(
         selectedAgent,
-        messages,
+        [...messages, userMsg],
         finalInput,
         currentFile,
         selectedAgent.systemInstruction
@@ -514,8 +518,8 @@ const ChatPage: React.FC<ChatPageProps> = ({
       // Process function calls (only available for Gemini / OpenAI / Anthropic)
       if (result.functionCalls?.length) {
         const geminiApiKey = selectedAgent.provider === 'gemini'
-          ? (selectedAgent.apiKey || process.env.API_KEY || '')
-          : (process.env.API_KEY || '');
+          ? (selectedAgent.apiKey || import.meta.env.VITE_GEMINI_API_KEY || '')
+          : (import.meta.env.VITE_GEMINI_API_KEY || '');
 
         for (const call of result.functionCalls) {
           const args = call.args || {};
