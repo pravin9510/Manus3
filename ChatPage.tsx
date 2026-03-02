@@ -28,6 +28,7 @@ interface ChatPageProps {
   project: Project | null;
   onCreateProject: (p: Project) => void;
   onUpdateProject: (id: string, updates: Partial<Project>) => void;
+  onDeleteProject?: (id: string) => void;
   credits: number;
   onDeductCredits: (amount: number) => boolean;
   isDarkMode: boolean;
@@ -406,6 +407,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
   const [apkBuildData, setApkBuildData] = useState<ChatMessage['mobileAppData'] | null>(null);
   
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const iconInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [activeMsgIdForIcon, setActiveMsgIdForIcon] = useState<string | null>(null);
@@ -802,6 +804,15 @@ const ChatPage: React.FC<ChatPageProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
+          {project && onDeleteProject && (
+            <button 
+              onClick={() => setShowDeleteConfirm(true)}
+              className="p-2.5 rounded-2xl border transition-all bg-red-600/10 text-red-500/60 hover:text-red-500 border-red-500/20"
+              aria-label="Delete project"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
           <button onClick={onBack} className="p-2.5 rounded-2xl border transition-all bg-white/5 text-white/30 hover:text-white border-white/5">
             <Save size={18} />
           </button>
@@ -1096,6 +1107,35 @@ const ChatPage: React.FC<ChatPageProps> = ({
       {previewMobileData && <MobileAppPreview platform={previewMobileData.platform} code={previewMobileData.code} isOpen={true} onClose={() => setPreviewMobileData(null)} appIcon={previewMobileData.appIcon} appName={previewMobileData.appName} />}
       {apkBuildData     && <ApkBuildModal    isOpen={true} onClose={() => setApkBuildData(null)} mobileData={apkBuildData} />}
       {isPublishModalOpen && <PublishModal   isOpen={true} onClose={() => setIsPublishModalOpen(false)} appName={project?.title} websiteCode={latestWebCode} pwaData={latestPwaData} />}
+      
+      {/* DELETE CONFIRMATION MODAL */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="bg-[#1A1A1A] border border-white/10 rounded-[2.5rem] p-8 w-full max-w-sm text-center space-y-6 animate-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 bg-red-500/10 rounded-[1.5rem] flex items-center justify-center mx-auto text-red-500">
+              <Trash2 size={32} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black">Project Delete Karein?</h3>
+              <p className="text-sm text-white/40 font-medium">Ye action undo nahi kiya ja sakta. Kya aap sure hain?</p>
+            </div>
+            <div className="flex flex-col space-y-3">
+              <button 
+                onClick={() => { onDeleteProject?.(project!.id); setShowDeleteConfirm(false); }}
+                className="w-full h-14 bg-red-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-red-500/20 active:scale-95 transition-all"
+              >
+                Haan, Delete Karo
+              </button>
+              <button 
+                onClick={() => setShowDeleteConfirm(false)}
+                className="w-full h-14 bg-white/5 text-white/60 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-white/10 transition-all"
+              >
+                Nahi, Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -152,9 +152,28 @@ const App: React.FC = () => {
     setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...updates } : p));
   };
 
+  const deleteProject = (projectId: string) => {
+    setProjects(prev => prev.filter(p => p.id !== projectId));
+    if (selectedProject?.id === projectId) {
+      setSelectedProject(null);
+      setCurrentView('home');
+    }
+  };
+
   const createProject = (newProject: Project) => {
     setProjects(prev => [newProject, ...prev]);
     setSelectedProject(newProject);
+  };
+
+  const exportVault = () => {
+    const data = JSON.stringify({ projects, customAgents, theme: isDarkMode }, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `manus-vault-export-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleGoogleLogin = () => {
@@ -174,6 +193,7 @@ const App: React.FC = () => {
       case 'agents': setIsAgentManagerOpen(true); break;
       case 'connectors': setIsConnectorsOpen(true); break;
       case 'history': setActiveCategory('All'); setIsSettingsOpen(false); break;
+      case 'export_all': exportVault(); break;
       default: break;
     }
     setIsSettingsOpen(false);
@@ -212,6 +232,7 @@ const App: React.FC = () => {
           project={selectedProject}
           onCreateProject={createProject}
           onUpdateProject={updateProject}
+          onDeleteProject={deleteProject}
           credits={credits}
           onDeductCredits={(amt) => { if (credits < amt) { setIsSubscriptionOpen(true); return false; } setCredits(prev => prev - amt); return true; }}
           isDarkMode={isDarkMode}
@@ -315,7 +336,8 @@ const App: React.FC = () => {
                     <ProjectItem 
                       project={p} 
                       isDarkMode={isDarkMode} 
-                      onPreview={(e, proj) => { e.stopPropagation(); setPreviewProject(proj); }} 
+                      onPreview={(e, proj) => { e.stopPropagation(); setPreviewProject(proj); }}
+                      onDelete={(e, proj) => { e.stopPropagation(); deleteProject(proj.id); }}
                     />
                   </div>
                 ))}

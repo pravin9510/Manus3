@@ -3,7 +3,7 @@ import React from 'react';
 import { 
   Gamepad2, TrendingUp, Globe, 
   Smartphone, ChevronRight, Palette, 
-  Zap, Box, Eye, Share2, Rocket, Download, Cloud
+  Zap, Box, Eye, Share2, Rocket, Download, Cloud, Trash2
 } from 'lucide-react';
 import { Project } from '../types';
 
@@ -13,9 +13,10 @@ interface ProjectItemProps {
   onForge?: (e: React.MouseEvent, project: Project) => void;
   onPreview?: (e: React.MouseEvent, project: Project) => void;
   onPublish?: (e: React.MouseEvent, project: Project) => void;
+  onDelete?: (e: React.MouseEvent, project: Project) => void;
 }
 
-const ProjectItem: React.FC<ProjectItemProps> = ({ project, isDarkMode, onForge, onPreview, onPublish }) => {
+const ProjectItem: React.FC<ProjectItemProps> = ({ project, isDarkMode, onForge, onPreview, onPublish, onDelete }) => {
   const getIcon = () => {
     switch (project.icon) {
       case 'web': return Globe;
@@ -121,6 +122,14 @@ const ProjectItem: React.FC<ProjectItemProps> = ({ project, isDarkMode, onForge,
                 >
                   <Share2 size={12} />
                   <span className="text-[9px] font-black uppercase tracking-widest">Public</span>
+                </button>
+              )}
+              {onDelete && (
+                <button 
+                  onClick={(e) => onDelete(e, project)}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-red-600/10 border border-red-500/20 text-red-500 hover:bg-red-600 hover:text-white transition-all tap-scale ml-auto"
+                >
+                  <Trash2 size={12} />
                 </button>
               )}
             </div>
